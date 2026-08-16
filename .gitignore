@@ -1,0 +1,6 @@
+data/
+raw_data/
+models/
+results*.csv
+*.png
+Manifest.toml
