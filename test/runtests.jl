@@ -5,4 +5,5 @@ using Test, MedCapsNet
     include("test_layers.jl")
     include("test_losses.jl")
     include("test_capsnet.jl")
+    include("test_data.jl")
 end
