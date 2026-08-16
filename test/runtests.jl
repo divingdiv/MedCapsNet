@@ -7,4 +7,5 @@ using Test, MedCapsNet
     include("test_capsnet.jl")
     include("test_data.jl")
     include("test_train.jl")
+    include("test_metrics.jl")
 end
