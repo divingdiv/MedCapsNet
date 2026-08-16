@@ -4,4 +4,5 @@ using Test, MedCapsNet
     @test isdefined(MedCapsNet, :MedCapsNet) broken=false
     include("test_layers.jl")
     include("test_losses.jl")
+    include("test_capsnet.jl")
 end
