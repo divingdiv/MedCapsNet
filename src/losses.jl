@@ -16,3 +16,6 @@ function capsnet_loss(m::CapsNet, x, T; alpha=5f-4)
     return margin_loss(class_lengths(v), T) +
            alpha * reconstruction_loss(reconstruct(m, v, T), x)
 end
+
+"""Shared classification loss for plain CNN baselines (LeNet/Baseline)."""
+cnn_loss(m, x, T) = Flux.logitcrossentropy(m(x), T)
