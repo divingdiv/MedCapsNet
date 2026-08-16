@@ -66,3 +66,19 @@ function augment_data(d::LabeledData; fraction=0.05, max_angle=10.0,
     p = randperm(rng, length(y))
     return LabeledData(x[:, :, :, p], y[p])
 end
+
+"""Load preprocessed medical data (see scripts/preprocess_*.jl for the writer).
+Reference normalization: subtract training mean, then min-max rescale to [0,1]."""
+function load_medical(dir::AbstractString)
+    f = JLD2.load(joinpath(dir, "data.jld2"))
+    μ = f["mean_value"]
+    function norm01(a)
+        b = a .- μ
+        lo, hi = extrema(b)
+        return Float32.((b .- lo) ./ (hi - lo + 1f-8))
+    end
+    train = LabeledData(norm01(f["train_x"]), f["train_y"])
+    test  = LabeledData(norm01(f["test_x"]), f["test_y"])
+    val   = haskey(f, "val_x") ? LabeledData(norm01(f["val_x"]), f["val_y"]) : nothing
+    return train, val, test
+end

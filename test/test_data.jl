@@ -1,4 +1,5 @@
 using Test, MedCapsNet, Random
+using JLD2, Statistics
 
 toy(n; classes=2) = LabeledData(rand(Float32, 28, 28, 1, n),
                                 repeat(1:classes, inner=n ÷ classes))
@@ -33,4 +34,19 @@ end
     @test nobs(both) == 110                           # +5% rotated, +5% flipped
     @test all(isfinite, aug.x)
     @test size(aug.x)[1:3] == (28, 28, 1)
+end
+
+@testset "load_medical" begin
+    dir = mktempdir()
+    tx = rand(Float32, 28, 28, 1, 20); vx = rand(Float32, 28, 28, 1, 4)
+    ex = rand(Float32, 28, 28, 1, 6)
+    jldsave(joinpath(dir, "data.jld2");
+            train_x=tx, train_y=repeat([1, 2], 10),
+            val_x=vx, val_y=[1, 2, 1, 2],
+            test_x=ex, test_y=[1, 2, 1, 2, 1, 2],
+            mean_value=Float32(mean(tx)))
+    tr, val, te = load_medical(dir)
+    @test nobs(tr) == 20 && nobs(val) == 4 && nobs(te) == 6
+    @test minimum(tr.x) ≈ 0f0 atol = 1f-6            # min-max normalized
+    @test maximum(tr.x) ≈ 1f0 atol = 1f-6
 end
