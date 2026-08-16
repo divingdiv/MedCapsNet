@@ -22,3 +22,27 @@ using Flux
     @test size(u) == (8, 1152, 2)
     @test all(safe_norm(u; dims=1) .< 1f0)      # squashed
 end
+
+@testset "prediction_vectors + routing" begin
+    n, B = 3, 2
+    W = 0.01f0 .* randn(Float32, 16, 8, 1152, n, 1)
+    u = rand(Float32, 8, 1152, B)
+    û = MedCapsNet.prediction_vectors(W, u)
+    @test size(û) == (16, 1152, n, B)
+
+    v = routing(û, 3)
+    @test size(v) == (16, n, B)
+    @test all(safe_norm(v; dims=1) .< 1f0)
+
+    # agreement: all input capsules voting identically for class 1,
+    # incoherent random votes for class 2 → class-1 capsule is longer
+    û2 = 0.01f0 .* randn(Float32, 16, 64, 2, 1)
+    û2[:, :, 1, 1] .= 1f0
+    v2 = routing(û2, 3)
+    len = vec(safe_norm(v2; dims=1))
+    @test len[1] > len[2]
+
+    # differentiable end to end
+    g = Flux.gradient(w -> sum(routing(MedCapsNet.prediction_vectors(w, u), 3)), W)[1]
+    @test g !== nothing && all(isfinite, g)
+end
