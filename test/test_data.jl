@@ -23,3 +23,14 @@ end
     @test count(==(1), unb.y) == 20                  # class 1 → 20%
     @test count(==(2), unb.y) == 100                 # class 2 untouched
 end
+
+@testset "augment_data" begin
+    d = toy(100)
+    rng = Xoshiro(3)
+    aug = augment_data(d; fraction=0.05, rng)
+    @test nobs(aug) == 105                            # +5% rotated copies
+    both = augment_data(d; fraction=0.05, flips=true, rng)
+    @test nobs(both) == 110                           # +5% rotated, +5% flipped
+    @test all(isfinite, aug.x)
+    @test size(aug.x)[1:3] == (28, 28, 1)
+end

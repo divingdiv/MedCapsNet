@@ -42,3 +42,27 @@ limit_data(d::LabeledData, percentage::Real; rng) =
 unbalance_dict = {percentage, label1, label2}); other classes untouched."""
 unbalance_data(d::LabeledData, classes::Vector{Int}, percentage::Real; rng) =
     _sample_classes(d, (c, n) -> c in classes ? max(1, round(Int, n * percentage / 100)) : n, rng)
+
+"""Append augmented copies of `fraction` of the samples: random rotation in
+±`max_angle` degrees (zero-filled, same frame); plus horizontal flips when
+`flips=true` (used for Fashion-MNIST). Matches reference data_loader behavior."""
+function augment_data(d::LabeledData; fraction=0.05, max_angle=10.0,
+                      flips::Bool=false, rng)
+    k = max(1, round(Int, fraction * nobs(d)))
+    idx = randperm(rng, nobs(d))[1:k]
+    rot = similar(d.x, 28, 28, size(d.x, 3), k)
+    for (j, i) in enumerate(idx)
+        θ = deg2rad((2 * rand(rng) - 1) * max_angle)
+        img = @view d.x[:, :, 1, i]
+        rotated = Float32.(imrotate(img, θ, axes(img); fillvalue=0f0))
+        rot[:, :, 1, j] = replace(x -> isnan(x) ? 0f0 : x, rotated)
+    end
+    xs, ys = [d.x, rot], [d.y, d.y[idx]]
+    if flips
+        push!(xs, reverse(d.x[:, :, :, idx]; dims=2))
+        push!(ys, d.y[idx])
+    end
+    x, y = cat(xs...; dims=4), vcat(ys...)
+    p = randperm(rng, length(y))
+    return LabeledData(x[:, :, :, p], y[p])
+end
