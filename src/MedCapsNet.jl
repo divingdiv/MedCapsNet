@@ -15,6 +15,6 @@ include("losses.jl")
 # include("baselines.jl"); include("data.jl"); include("train.jl")
 # include("metrics.jl"); include("visualize.jl")
 
-export squash, safe_norm, margin_loss
+export squash, safe_norm, margin_loss, primary_capsules
 
 end # module

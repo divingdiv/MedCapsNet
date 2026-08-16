@@ -11,3 +11,14 @@ using Test, MedCapsNet
     big = squash(reshape(Float32[300, 400], 2, 1); dims=1)
     @test sqrt(sum(abs2, big)) < 1f0                     # squashes into unit ball
 end
+
+using Flux
+
+@testset "primary_capsules" begin
+    conv1 = Conv((9, 9), 1 => 256, relu)
+    conv2 = Conv((9, 9), 256 => 256, relu; stride=2)
+    x = rand(Float32, 28, 28, 1, 2)
+    u = MedCapsNet.primary_capsules(conv1, conv2, x)
+    @test size(u) == (8, 1152, 2)
+    @test all(safe_norm(u; dims=1) .< 1f0)      # squashed
+end
