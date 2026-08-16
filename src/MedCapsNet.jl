@@ -19,6 +19,6 @@ include("data.jl")
 
 export squash, safe_norm, margin_loss, primary_capsules, prediction_vectors, routing
 export CapsNet, capsules, class_lengths, reconstruct, reconstruction_loss, capsnet_loss
-export LabeledData, nobs, take_obs, load_vision, split_validation
+export LabeledData, nobs, take_obs, load_vision, split_validation, limit_data, unbalance_data
 
 end # module
