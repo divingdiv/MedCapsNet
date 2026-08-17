@@ -66,6 +66,47 @@ Three flags support the experiments described in the reference paper:
 - `--augment` — append rotated (and, for Fashion-MNIST, horizontally
   flipped) copies of a fraction of the training samples.
 
+## Medical datasets
+
+`scripts/preprocess_diaretdb1.jl` builds the `medical` dataset (`data/diaretdb1/data.jld2`)
+from the DIARETDB1 standard diabetic retinopathy database — 2-class patches
+(class `1` = soft+hard exudates, class `2` = hemorrhages+red small dots)
+matching the `load_medical` on-disk contract (`train_x`/`train_y`/`test_x`/
+`test_y`/`mean_value`, no validation split — `train.jl`/`test.jl` carve one out
+of `train_x` automatically).
+
+1. Download the database package from the official DIARETDB1 project page:
+   <https://www.it.lut.fi/project/imageret/diaretdb1/> (a ~141 MB zip
+   containing the fundus images, ground truth, and documentation).
+2. Extract it so the following layout sits under `raw_data/diaretdb1/`
+   (paths the preprocessing script reads directly):
+
+   ```
+   raw_data/diaretdb1/
+     ddb1_fundusimages/            # the 89 fundus images (*.png)
+     ddb1_groundtruth/
+       softexudates/  hardexudates/
+       hemorrhages/   redsmalldots/
+     train_images.txt              # optional — one filename per line
+     test_images.txt               # optional — one filename per line
+   ```
+
+   If `train_images.txt`/`test_images.txt` are absent, the script falls back
+   to the DIARETDB1 evaluation protocol's split of the sorted filenames
+   (images 1–28 train, 29–89 test).
+3. Run the preprocessing script from the repo root:
+
+   ```bash
+   julia --project=. scripts/preprocess_diaretdb1.jl --seed 1
+   ```
+
+   This writes `data/diaretdb1/data.jld2` (~480 augmented train patches per
+   class, 60/70 test patches), after which `scripts/train.jl` and
+   `scripts/test.jl` accept `medical capsnet --datadir data/diaretdb1` like
+   any other dataset. Without `raw_data/diaretdb1/ddb1_fundusimages/` present,
+   the script exits immediately with a download-instructions error pointing
+   back to this section.
+
 ## Experiments
 
 `scripts/run_experiments.jl` automates the paper's three studies — limited
