@@ -65,3 +65,51 @@ Three flags support the experiments described in the reference paper:
   so `--unbalance 1,9@20` targets digits `0` and `8`.
 - `--augment` — append rotated (and, for Fashion-MNIST, horizontally
   flipped) copies of a fraction of the training samples.
+
+## Experiments
+
+`scripts/run_experiments.jl` automates the paper's three studies — limited
+training data, class imbalance, and augmentation — across architectures and
+seeds, appending one row per (architecture × configuration × seed) to a CSV:
+
+```bash
+julia --project=. scripts/run_experiments.jl mnist --epochs 25 --seeds 1,2,3 \
+    --percents 5,10,50,100 --archs capsnet,lenet,baseline --out results.csv
+```
+
+Positional argument is the dataset (`mnist`, `fashion`, or `medical`); flags:
+
+- `--epochs N` (default 25)
+- `--seeds S1,S2,...` (default `1,2,3`)
+- `--percents P1,P2,...` — the limited-data study's percentages (default `5,10,50,100`)
+- `--archs A1,A2,...` (default `capsnet,lenet,baseline`)
+- `--out PATH` — CSV to append to (default `results.csv`, gitignored; created
+  with a header if it doesn't already exist)
+
+For each architecture/seed pair the script runs: one training config per
+`--percents` value (study 1: limited data), one config downsampling classes
+`1,9` (digits `0`,`8`) to 20% of their examples at 100% data (study 2:
+imbalance), and one config with augmentation enabled at 100% data (study 3:
+augmentation). Each config trains a fresh model from scratch, reloads the
+best checkpoint, and reports test-set accuracy and mean per-class F1.
+
+**Cost warning:** the full 3-arch × 6-config × 3-seed sweep at 25 epochs is
+a realistic **hours-on-GPU / days-on-CPU** undertaking — this package's
+supported path is CPU-only Flux, so budget accordingly. Start small before
+committing to the full sweep, e.g.:
+
+```bash
+julia --project=. scripts/run_experiments.jl mnist --seeds 1 --archs capsnet,lenet
+```
+
+or the even smaller smoke test used to verify the script itself:
+
+```bash
+julia --project=. scripts/run_experiments.jl mnist --epochs 1 --seeds 1 --percents 1 --archs lenet
+```
+
+CUDA acceleration is optional and out of scope for this package: if a CUDA
+GPU and the CUDA.jl package are available, `using CUDA` followed by
+`model = gpu(model)` before training would move the model (and batches) to
+the GPU with no other code changes required, but this was not exercised or
+tested here — CPU remains the only supported and verified path.
