@@ -3,6 +3,7 @@ module MedCapsNet
 using Flux
 using Flux: onehotbatch, DataLoader
 using NNlib: softmax, relu
+import NNlib
 using Optimisers
 using Statistics, Random, LinearAlgebra, Printf
 using JLD2
@@ -11,12 +12,12 @@ import MLDatasets
 
 include("layers.jl")
 include("capsnet.jl")
+include("baselines.jl")
 include("losses.jl")
 include("data.jl")
 include("train.jl")
 include("metrics.jl")
 # include lines are added task by task:
-# include("baselines.jl")
 # include("visualize.jl")
 
 export squash, safe_norm, margin_loss, primary_capsules, prediction_vectors, routing
@@ -25,5 +26,6 @@ export LabeledData, nobs, take_obs, load_vision, split_validation, limit_data, u
 export augment_data, load_medical
 export make_batches, evaluate_loss, train!, cnn_loss
 export predict_classes, confusion_matrix, classification_report
+export lenet, baseline_cnn
 
 end # module
