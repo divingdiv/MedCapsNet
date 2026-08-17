@@ -2,7 +2,7 @@ module MedCapsNet
 
 using Flux
 using Flux: onehotbatch, DataLoader
-using NNlib: softmax, relu
+using NNlib: softmax, relu, batched_mul
 import NNlib
 using Optimisers
 using Statistics, Random, LinearAlgebra, Printf

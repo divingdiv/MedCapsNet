@@ -14,12 +14,16 @@ function primary_capsules(conv1, conv2, x)
     return squash(u; dims=1)
 end
 
-"""û[k, i, j, b] = W[:, :, i, j] * u[:, i, b] — every primary capsule i predicts
-every class capsule j. Materializes (16,8,1152,n,B); prefer batch ≤ 64 on CPU."""
+"""û[k, i, j, b] = W[:, :, i, j] * u[:, i, b] via batched matmul over the 1152
+primary capsules — no (16,8,1152,n,B) materialization; identical values to the
+broadcast formulation (parity-tested)."""
 function prediction_vectors(W, u)
+    dk, dm, ni, nc = size(W, 1), size(W, 2), size(W, 3), size(W, 4)
     B = size(u, 3)
-    u5 = reshape(u, 1, 8, size(u, 2), 1, B)
-    return dropdims(sum(W .* u5; dims=2); dims=2)
+    W2 = reshape(permutedims(dropdims(W; dims=5), (1, 4, 2, 3)), dk * nc, dm, ni)  # (16n, 8, 1152)
+    u2 = permutedims(u, (1, 3, 2))                                                 # (8, B, 1152)
+    r = batched_mul(W2, u2)                                                        # (16n, B, 1152)
+    return permutedims(reshape(r, dk, nc, B, ni), (1, 4, 2, 3))                    # (16, 1152, n, B)
 end
 
 """Dynamic routing (Sabour et al. 2017), `iters` iterations, softmax over classes."""

@@ -1,4 +1,4 @@
-using Test, MedCapsNet
+using Test, MedCapsNet, Random
 
 @testset "squash / safe_norm" begin
     v = reshape(Float32[3, 4], 2, 1)                 # norm 5
@@ -44,5 +44,22 @@ end
 
     # differentiable end to end
     g = Flux.gradient(w -> sum(routing(MedCapsNet.prediction_vectors(w, u), 3)), W)[1]
+    @test g !== nothing && all(isfinite, g)
+end
+
+@testset "prediction_vectors batched_mul parity" begin
+    rng = Xoshiro(11)
+    dk, dm, ni, nc, B = 16, 8, 50, 3, 4          # small dims, loop-checkable
+    W = 0.1f0 .* randn(rng, Float32, dk, dm, ni, nc, 1)
+    u = randn(rng, Float32, dm, ni, B)
+    û = MedCapsNet.prediction_vectors(W, u)
+    @test size(û) == (dk, ni, nc, B)
+    # independent loop reference: û[k,i,j,b] = Σ_m W[k,m,i,j,1]·u[m,i,b]
+    ref = zeros(Float32, dk, ni, nc, B)
+    for k in 1:dk, i in 1:ni, j in 1:nc, b in 1:B
+        ref[k, i, j, b] = sum(W[k, m, i, j, 1] * u[m, i, b] for m in 1:dm)
+    end
+    @test isapprox(û, ref; atol=1f-5)
+    g = Flux.gradient(w -> sum(abs2, MedCapsNet.prediction_vectors(w, u)), W)[1]
     @test g !== nothing && all(isfinite, g)
 end
