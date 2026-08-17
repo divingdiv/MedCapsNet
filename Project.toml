@@ -5,6 +5,7 @@ authors = ["Divyansh Goyal <divital2004@gmail.com>"]
 
 [deps]
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 ImageContrastAdjustment = "f332f351-ec65-5f6a-b3d1-319c6670881a"
@@ -23,6 +24,7 @@ TiffImages = "731e570b-9d59-4bfa-96dc-6df516fadf69"
 
 [compat]
 Colors = "0.13.1"
+DelimitedFiles = "1.9.1"
 FileIO = "1.20.0"
 Flux = "0.16.11"
 ImageContrastAdjustment = "0.3.13"

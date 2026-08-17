@@ -107,6 +107,60 @@ of `train_x` automatically).
    the script exits immediately with a download-instructions error pointing
    back to this section.
 
+`scripts/preprocess_tupac16.jl` builds a second `medical` dataset
+(`data/tupac16/data.jld2`) from the TUPAC16 mitosis-detection auxiliary
+dataset — 2-class 28×28 patches (class `1` = mitosis, class `2` =
+non-mitosis) matching the same `load_medical` on-disk contract, this time
+including a validation split (`val_x`/`val_y`).
+
+**Documented deviation:** the reference pipeline stain-normalizes with
+Vahadane decomposition (via the `SPAMS` sparse-NMF library). No Julia
+package implements sparse NMF/dictionary learning suitable for stain
+separation, so this port substitutes **Macenko** stain normalization
+(`macenko_hematoxylin`, SVD/eigen-decomposition on the optical-density
+plane) — the standard, widely-used alternative to Vahadane for extracting
+the hematoxylin channel from H&E-stained histology images. This is the
+one deliberate algorithmic deviation from the reference in this port.
+
+1. Download the mitosis-detection auxiliary dataset from the official
+   TUPAC16 challenge site: <https://tupac.tue-image.nl/> (registration may
+   be required; the auxiliary set is ~656 images from 73 patients with
+   centroid-labelled mitoses).
+2. Extract it so the following layout sits under `raw_data/tupac16/`
+   (paths the preprocessing script reads directly):
+
+   ```
+   raw_data/tupac16/
+     mitoses_image_data/
+       <case>/
+         <image>.tif             # 40x HPF tiles
+     mitoses_ground_truth/
+       <case>/
+         <image>.csv             # one "row,col" mitosis center per line
+     train.csv                   # optional — one case id per line
+     val.csv                     # optional — one case id per line
+     test.csv                    # optional — one case id per line
+   ```
+
+   If `train.csv`/`val.csv`/`test.csv` are absent, the script falls back to
+   a 70/10/20 split of the sorted case directory names.
+3. Run the preprocessing script from the repo root:
+
+   ```bash
+   julia --project=. scripts/preprocess_tupac16.jl --seed 1
+   ```
+
+   Per image, this extracts 30 jittered 100×100→28×28 mitosis-centered
+   positive patches (cycling through the image's annotated centers) plus up
+   to 3 negative patches from mitosis-free cells of a 3×3 grid, after
+   Macenko hematoxylin-channel stain normalization; training-split patches
+   are randomly flipped for augmentation. It writes `data/tupac16/data.jld2`
+   (train/val/test), after which `scripts/train.jl` and `scripts/test.jl`
+   accept `medical capsnet --datadir data/tupac16` like any other dataset.
+   Without `raw_data/tupac16/mitoses_image_data/` present, the script exits
+   immediately with a download-instructions error pointing back to this
+   section.
+
 ## Experiments
 
 `scripts/run_experiments.jl` automates the paper's three studies — limited
