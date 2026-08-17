@@ -10,3 +10,7 @@ using Test, MedCapsNet
     include("test_baselines.jl")
     include("test_visualize.jl")
 end
+
+if get(ENV, "MEDCAPSNET_TEST_METAL", "") == "true"
+    include("test_metal.jl")
+end

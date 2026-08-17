@@ -11,6 +11,14 @@ build_model(arch::Symbol, n_class::Int; rng) =
 
 build_lossfn(arch::Symbol) = arch === :capsnet ? capsnet_loss : cnn_loss
 
+function resolve_device(args)
+    if getopt(args, "--device", "cpu") == "gpu"
+        @eval Main using Metal
+        return Flux.gpu
+    end
+    return identity
+end
+
 function load_splits(dataset::Symbol, args, rng)
     if dataset === :medical
         dir = getopt(args, "--datadir", "data/diaretdb1")

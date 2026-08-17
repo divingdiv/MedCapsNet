@@ -6,6 +6,7 @@ pct     = parse(Float64, getopt(ARGS, "--percentage", "100"))
 seed    = parse(Int, getopt(ARGS, "--seed", "1"))
 unb     = getopt(ARGS, "--unbalance", "")          # e.g. "1,9@20" (1-based labels)
 rng     = Xoshiro(seed)
+device  = resolve_device(ARGS)
 
 train_d, val_d, _ = load_splits(dataset, ARGS, rng)
 pct < 100 && (train_d = limit_data(train_d, pct; rng))
@@ -21,7 +22,7 @@ dir     = getopt(ARGS, "--modeldir", joinpath("models", String(dataset), String(
 @info "training" dataset arch n_train = MedCapsNet.nobs(train_d) n_val = MedCapsNet.nobs(val_d) epochs dir
 
 train!(build_lossfn(arch), model, train_d, val_d, n_class;
-       epochs, dir, rng,
+       epochs, dir, rng, device,
        batchsize = arch === :capsnet ? 64 : 128,
        weight_decay = arch === :baseline ? 5f-4 : 0f0)
 jldsave(joinpath(dir, "meta.jld2"); n_class, arch=String(arch))

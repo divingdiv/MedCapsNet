@@ -50,9 +50,10 @@ julia --project=. scripts/test.jl mnist lenet
 - `--seed S` (default 1)
 - `--datadir DIR`
 - `--modeldir DIR` (default `models/<dataset>/<arch>/`)
+- `--device cpu|gpu` (default `cpu`) — see [GPU (Apple Metal)](#gpu-apple-metal)
 
 `test.jl` takes the same positional `<dataset> <arch>` plus `--seed`,
-`--datadir`, and `--modeldir`, and reconstructs the model from the
+`--datadir`, `--modeldir`, and `--device`, and reconstructs the model from the
 checkpoint saved by `train.jl` to report a confusion matrix and
 per-class precision/recall/F1 on the held-out test split.
 
@@ -87,6 +88,38 @@ disentangled features.
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
+
+This CPU-only suite never loads Metal. The GPU-gated suite is opt-in — see
+[GPU (Apple Metal)](#gpu-apple-metal).
+
+## GPU (Apple Metal)
+
+Every script (`train.jl`, `test.jl`, `visualize.jl`, `run_experiments.jl`)
+accepts `--device cpu|gpu` (default `cpu`). `--device gpu` loads `Metal.jl`
+and moves the model and every batch through `Flux.gpu` (→ `MtlArray`) for
+training/evaluation/prediction; checkpoints are always written back to plain
+CPU arrays (`Flux.state(cpu(model))`), so a GPU-trained checkpoint loads on
+any machine, GPU or not:
+
+```bash
+julia --project=. scripts/train.jl mnist lenet --epochs 2 --percentage 1 --device gpu
+julia --project=. scripts/test.jl mnist lenet --device gpu
+```
+
+Requires a functional Apple Metal GPU (`Metal.functional() == true`); falls
+back to ordinary CPU Flux for `--device cpu` (the default) with no `Metal.jl`
+load at all.
+
+Metal-specific tests (forward parity, gradient, and checkpoint round-trip
+on the GPU) are gated behind an opt-in environment variable, since they
+require a Metal-capable Mac and are skipped by default:
+
+```bash
+MEDCAPSNET_TEST_METAL=true julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+**Measured speedup:** TODO (Task 3) — CPU vs. Metal wall-clock comparison
+across architectures/datasets.
 
 ## Medical datasets
 
@@ -217,6 +250,7 @@ see [Medical datasets](#medical-datasets) above — rather than
 - `--archs A1,A2,...` (default `capsnet,lenet,baseline`)
 - `--out PATH` — CSV to append to (default `results.csv`, gitignored; created
   with a header if it doesn't already exist)
+- `--device cpu|gpu` (default `cpu`) — see [GPU (Apple Metal)](#gpu-apple-metal)
 
 For each architecture/seed pair the script runs: one training config per
 `--percents` value (study 1: limited data), one config downsampling classes
@@ -226,9 +260,10 @@ augmentation). Each config trains a fresh model from scratch, reloads the
 best checkpoint, and reports test-set accuracy and mean per-class F1.
 
 **Cost warning:** the full 3-arch × 6-config × 3-seed sweep at 25 epochs is
-a realistic **hours-on-GPU / days-on-CPU** undertaking — this package's
-supported path is CPU-only Flux, so budget accordingly. Start small before
-committing to the full sweep, e.g.:
+a realistic **hours-on-GPU / days-on-CPU** undertaking, so budget accordingly
+— pass `--device gpu` on a Metal-capable Mac (see
+[GPU (Apple Metal)](#gpu-apple-metal)) to cut this down substantially. Start
+small before committing to the full sweep, e.g.:
 
 ```bash
 julia --project=. scripts/run_experiments.jl mnist --seeds 1 --archs capsnet,lenet
@@ -239,9 +274,3 @@ or the even smaller smoke test used to verify the script itself:
 ```bash
 julia --project=. scripts/run_experiments.jl mnist --epochs 1 --seeds 1 --percents 1 --archs lenet
 ```
-
-CUDA acceleration is optional and out of scope for this package: if a CUDA
-GPU and the CUDA.jl package are available, `using CUDA` followed by
-`model = gpu(model)` before training would move the model (and batches) to
-the GPU with no other code changes required, but this was not exercised or
-tested here — CPU remains the only supported and verified path.

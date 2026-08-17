@@ -2,11 +2,12 @@ scores(m::CapsNet, x) = class_lengths(capsules(m, x))
 scores(m::Chain, x) = m(x)
 
 """Argmax class per sample, evaluated in batches (reference uses batches of 512)."""
-function predict_classes(m, x::AbstractArray{<:Real,4}; batchsize::Int=512)
+function predict_classes(m, x::AbstractArray{<:Real,4}; batchsize::Int=512, device=identity)
+    m = device(m)
     Flux.testmode!(m)
     preds = Int[]
     for r in Iterators.partition(1:size(x, 4), batchsize)
-        s = scores(m, x[:, :, :, r])
+        s = cpu(scores(m, device(x[:, :, :, r])))
         append!(preds, vec(getindex.(argmax(s; dims=1), 1)))
     end
     return preds
