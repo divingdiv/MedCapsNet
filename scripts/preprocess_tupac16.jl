@@ -32,8 +32,14 @@ function image_patches(img_path, csv_path; augment::Bool)
     centers = isfile(csv_path) ?
         [(Int(r[1]), Int(r[2])) for r in eachrow(readdlm(csv_path, ','))] : Tuple{Int,Int}[]
     xs, ys = Matrix{Float32}[], Int[]
-    maybe_aug!(p) = augment ? (rand(rng) < 0.5 ? reverse(p; dims=2) :
-                               rand(rng) < 0.5 ? reverse(p; dims=1) : p) : p
+    # spec: independent 50% probability horizontal flip and 50% probability
+    # vertical flip (a patch may get neither, either, or both)
+    function maybe_aug!(p)
+        augment || return p
+        rand(rng) < 0.5 && (p = reverse(p; dims=2))
+        rand(rng) < 0.5 && (p = reverse(p; dims=1))
+        return p
+    end
     if !isempty(centers)                                   # positives: label 1
         for k in 1:N_POS_PER_IMAGE
             cy, cx = centers[mod1(k, length(centers))]

@@ -75,6 +75,8 @@ function collect_patches(names, per_class_target; augment::Bool)
     for cls in 1:2
         idx = shuffle(rng, findall(==(cls), ys))
         tgt = per_class_target isa Vector ? per_class_target[cls] : per_class_target
+        length(idx) < tgt &&
+            @warn "class patch count fell short of target" class=cls got=length(idx) target=tgt
         idx = idx[1:min(tgt, length(idx))]
         append!(out_x, xs[idx]); append!(out_y, fill(cls, length(idx)))
     end

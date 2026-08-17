@@ -4,13 +4,22 @@ A Flux.jl port of a capsule-network (CapsNet) research codebase for medical imag
 
 ## Status
 
-Package scaffold only — core capsule layers, losses, data loading, training, and
-evaluation are being added incrementally as later tasks land.
+This is a complete Flux.jl port of the reference CapsNet research codebase for
+medical imaging: capsule (`CapsNet`) and baseline CNN/LeNet models, dynamic
+routing with margin/reconstruction losses, the MNIST/Fashion-MNIST/medical
+data pipeline (loading, stratified subsampling, class-imbalance and
+augmentation utilities), a shared trainer with checkpointing, confusion-matrix
+and precision/recall/F1 metrics, `train.jl`/`test.jl`/`run_experiments.jl`
+command-line entry points, reconstruction and latent-dimension-tweak
+visualization, and DIARETDB1/TUPAC16 medical-image preprocessing scripts — all
+backed by a passing test suite.
 
 ## Requirements
 
 - Julia >= 1.10
-- Flux >= 0.14
+- Flux — resolved and pinned to 0.16 via this package's `Project.toml`
+  `[compat]` entries; `Pkg.instantiate()` picks it up automatically, no manual
+  version selection needed.
 
 ## Usage
 
@@ -20,14 +29,6 @@ Pkg.activate(".")
 Pkg.instantiate()
 using MedCapsNet
 ```
-
-## Testing
-
-```bash
-julia --project=. -e 'using Pkg; Pkg.test()'
-```
-
-## Usage
 
 Train and evaluate a model from the command line (run from the repo root so
 relative paths like `models/` and `data/` land inside the package):
@@ -65,6 +66,27 @@ Three flags support the experiments described in the reference paper:
   so `--unbalance 1,9@20` targets digits `0` and `8`.
 - `--augment` — append rotated (and, for Fashion-MNIST, horizontally
   flipped) copies of a fraction of the training samples.
+
+### Visualization
+
+```bash
+julia --project=. scripts/visualize.jl mnist [--seed S --modeldir DIR]
+```
+
+Loads a trained CapsNet checkpoint (default `models/mnist/capsnet/`, or
+`--modeldir DIR`) and the corresponding test split, then writes
+`images/reconstructions.png` (five test digits alongside their capsule
+reconstructions and predicted labels) and `images/tweak_dim1.png` through
+`images/tweak_dim16.png` (one image per class-capsule dimension, showing how
+the reconstruction changes as that dimension is swept) — the standard CapsNet
+qualitative check that the 16-D pose vector has learned interpretable,
+disentangled features.
+
+## Testing
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
 
 ## Medical datasets
 
@@ -113,14 +135,22 @@ dataset — 2-class 28×28 patches (class `1` = mitosis, class `2` =
 non-mitosis) matching the same `load_medical` on-disk contract, this time
 including a validation split (`val_x`/`val_y`).
 
-**Documented deviation:** the reference pipeline stain-normalizes with
+**Documented deviations:** the reference pipeline stain-normalizes with
 Vahadane decomposition (via the `SPAMS` sparse-NMF library). No Julia
 package implements sparse NMF/dictionary learning suitable for stain
 separation, so this port substitutes **Macenko** stain normalization
 (`macenko_hematoxylin`, SVD/eigen-decomposition on the optical-density
 plane) — the standard, widely-used alternative to Vahadane for extracting
-the hematoxylin channel from H&E-stained histology images. This is the
-one deliberate algorithmic deviation from the reference in this port.
+the hematoxylin channel from H&E-stained histology images. Separately, the
+DIARETDB1 preprocessing's `enhance_green` approximates the reference's
+OpenCV Lab-space CLAHE (`clipLimit=3.0`) with
+`ImageContrastAdjustment.AdaptiveEqualization(clip=0.03)`, which uses a
+different clip-limit parameterization and equalizes overall luminance
+rather than the Lab `L` channel specifically. And the trainer's batch sizes
+(64 for CapsNet, 128 for the CNN baselines) and its 0.95-per-epoch
+exponential learning-rate decay rate are this port's own resolution of
+trainer hyperparameters the reference leaves underspecified, not values
+transcribed from the reference.
 
 1. Download the mitosis-detection auxiliary dataset from the official
    TUPAC16 challenge site: <https://tupac.tue-image.nl/> (registration may
@@ -172,7 +202,14 @@ julia --project=. scripts/run_experiments.jl mnist --epochs 25 --seeds 1,2,3 \
     --percents 5,10,50,100 --archs capsnet,lenet,baseline --out results.csv
 ```
 
-Positional argument is the dataset (`mnist`, `fashion`, or `medical`); flags:
+Positional argument is the dataset — **`mnist` or `fashion` only**; the runner
+calls `load_vision` unconditionally and hardcodes `n=10` classes and the
+`--unbalance 1,9@20` study to MNIST/Fashion-style 10-class label indices, so
+`medical` raises an error rather than running. For medical data, drive
+`scripts/train.jl medical <arch> --datadir data/diaretdb1` (or
+`data/tupac16`) and `scripts/test.jl medical <arch> --datadir ...` directly —
+see [Medical datasets](#medical-datasets) above — rather than
+`run_experiments.jl`. Flags:
 
 - `--epochs N` (default 25)
 - `--seeds S1,S2,...` (default `1,2,3`)

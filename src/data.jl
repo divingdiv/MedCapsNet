@@ -48,6 +48,7 @@ unbalance_data(d::LabeledData, classes::Vector{Int}, percentage::Real; rng) =
 `flips=true` (used for Fashion-MNIST). Matches reference data_loader behavior."""
 function augment_data(d::LabeledData; fraction=0.05, max_angle=10.0,
                       flips::Bool=false, rng)
+    @assert size(d.x, 3) == 1 "augment_data currently supports single-channel data"
     k = max(1, round(Int, fraction * nobs(d)))
     idx = randperm(rng, nobs(d))[1:k]
     rot = similar(d.x, 28, 28, size(d.x, 3), k)

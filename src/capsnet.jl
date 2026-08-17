@@ -9,6 +9,11 @@ end
 
 Flux.@layer CapsNet
 
+"""CapsNet(n_class; channels=1, routing_iters=3, rng=Random.default_rng())
+
+`rng` seeds only the primary-to-class capsule weight tensor `W`; the `conv1`/
+`conv2` layers and the reconstruction `decoder` are initialized from Flux's
+default layer constructors, which draw from the global RNG rather than `rng`."""
 function CapsNet(n_class::Int; channels::Int=1, routing_iters::Int=3,
                  rng::Random.AbstractRNG=Random.default_rng())
     conv1 = Conv((9, 9), channels => 256, relu)
