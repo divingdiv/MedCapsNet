@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A native Julia/Flux.jl reproduction of the LABELS@MICCAI 2018 capsule-network study: CapsNet vs CNNs under limited data, class imbalance, and augmentation.">
+  <meta property="og:title" content="MedCapsNet">
+  <meta property="og:description" content="Capsule Networks against Medical Imaging Data Challenges — reproduced in Julia.">
+   <link rel="stylesheet" href="/MedCapsNet/libs/katex/katex.min.css">
+     
+   <link rel="stylesheet" href="/MedCapsNet/libs/highlight/styles/github.min.css">
+   
+  <link rel="stylesheet" href="/MedCapsNet/css/franklin.css">
+  <link rel="stylesheet" href="/MedCapsNet/css/basic.css">
+  <link rel="icon" href="/MedCapsNet/assets/favicon.png">
+   <title>MedCapsNet — Capsule Networks against Medical Imaging Data Challenges, in Julia</title>  
+</head>
+<body>
+  <header>
+<div class="blog-name"><a href="/MedCapsNet/">MedCapsNet</a></div>
+<nav>
+  <ul>
+    <li><a href="https://github.com/divingdiv/MedCapsNet">Code</a></li>
+    <li><a href="https://arxiv.org/abs/1807.07559">Paper</a></li>
+    <li><a href="https://github.com/ameliajimenez/capsule-networks-medical-data-challenges">Reference&nbsp;(TF)</a></li>
+  </ul>
+</nav>
+</header>
+
+
+<!-- Content appended here -->
+<div class="franklin-content">
+<h1 id="capsule_networks_against_medical_imaging_data_challenges_in_julia"><a href="#capsule_networks_against_medical_imaging_data_challenges_in_julia" class="header-anchor">Capsule Networks against Medical Imaging Data Challenges — in Julia</a></h1>
+
+<p class="hero-sub">A native <a href="https://julialang.org">Julia</a>/<a href="https://fluxml.ai">Flux.jl</a> reproduction of the LABELS@MICCAI&nbsp;2018 study by Jiménez-Sánchez, Albarqouni &amp; Mateus — capsule networks vs. CNNs under the data constraints that define medical imaging: scarce annotations, imbalanced classes, and the question of whether augmentation helps.</p>
+<div class="hero-links">
+  <a href="https://github.com/divingdiv/MedCapsNet">📦 Code (MedCapsNet.jl)</a>
+  <a href="https://arxiv.org/abs/1807.07559">📄 Paper (arXiv:1807.07559)</a>
+  <a href="https://github.com/ameliajimenez/capsule-networks-medical-data-challenges">🔬 Reference implementation (TF 1.4)</a>
+</div>
+
+
+<div class="abstract">
+<strong>Abstract.</strong> Annotated medical images are expensive: datasets are small, pathological classes are rare, and every label costs expert time. The original study asked whether <em>capsule networks</em> — whose vector-valued activations and routing-by-agreement build in equivariance a CNN has to learn from data — hold up better than convolutional baselines under exactly these constraints. This project is a from-scratch reproduction of that study's entire pipeline in Julia: the CapsNet architecture with dynamic routing, the LeNet and Baseline-CNN comparisons, the limited-data / class-imbalance / augmentation experiment harness, and the preprocessing pipelines for the two medical datasets (TUPAC16 mitosis patches and DIARETDB1 retinopathy patches). Every result below — and every figure's underlying data — comes from runs of the Julia code in this repository. The port is faithful to the reference hyperparameter-for-hyperparameter, with one documented algorithmic substitution (Macenko in place of Vahadane stain normalization) and one genuine bug found <em>in the port's own plan</em> along the way.
+</div>
+
+<div class="franklin-toc"><ol><li><a href="#background">Background</a></li><li><a href="#the_architecture">The architecture</a><ol><li><a href="#the_two_comparison_networks">The two comparison networks</a></li></ol></li><li><a href="#the_three_data_challenges">The three data challenges</a></li><li><a href="#the_port">The port</a><ol><li><a href="#how_it_was_built">How it was built</a></li></ol></li><li><a href="#what_reimplementation_found">What reimplementation found</a></li><li><a href="#results">Results</a></li><li><a href="#the_medical_pipelines">The medical pipelines</a></li><li><a href="#postscript_porting_the_training_loop_to_apple-gpu_metal">Postscript: porting the training loop to Apple-GPU &#40;Metal&#41;</a></li><li><a href="#reproduce_everything">Reproduce everything</a></li><li><a href="#references">References</a></li></ol></div>
+<h2 id="background"><a href="#background" class="header-anchor">Background</a></h2>
+<p>Sabour, Frosst &amp; Hinton&#39;s capsule networks &#40;<a href="https://arxiv.org/abs/1710.09829">NeurIPS 2017</a>&#41; replace scalar neurons with small vectors — <em>capsules</em> — whose <strong>length</strong> encodes the probability that an entity exists and whose <strong>orientation</strong> encodes the entity&#39;s pose: position, scale, stroke thickness, skew. Instead of max-pooling away spatial relationships, a capsule layer <em>routes by agreement</em>: a lower capsule sends its output to the higher capsule whose prediction it agrees with, so part–whole relationships are negotiated rather than discarded.</p>
+<p>That design promises something specifically valuable for medical imaging: <strong>less appetite for data</strong>. If equivariance is built in, the network shouldn&#39;t need thousands of augmented examples to learn that a rotated lesion is still a lesion. <a href="https://arxiv.org/abs/1807.07559">Jiménez-Sánchez, Albarqouni &amp; Mateus</a> put this claim to the test at LABELS@MICCAI 2018, comparing CapsNet against LeNet and against the deliberately-strong CNN baseline from the original capsule paper, on four datasets &#40;MNIST, Fashion-MNIST, TUPAC16 mitosis detection, DIARETDB1 diabetic retinopathy&#41; under three controlled stressors:</p>
+<ol>
+<li><p><strong>Limited data</strong> — train on stratified fractions of the training set;</p>
+</li>
+<li><p><strong>Class imbalance</strong> — starve selected classes to 20&#37; of their examples;</p>
+</li>
+<li><p><strong>Data augmentation</strong> — small rotations &#40;and flips where they make sense&#41; appended to the training set.</p>
+</li>
+</ol>
+<p>Their finding: capsule networks degrade more gracefully than both CNNs as data shrinks or skews. This project reproduces that entire experimental apparatus in Julia.</p>
+<h2 id="the_architecture"><a href="#the_architecture" class="header-anchor">The architecture</a></h2>
+
+<div class="fig">
+  <img src="/MedCapsNet/assets/capsnet-architecture.svg" alt="CapsNet architecture: two convolutions form 1152 8-D primary capsules, dynamic routing forms n 16-D class capsules, capsule lengths give the prediction; a masked decoder reconstructs the input as regularization." />
+  <p class="caption"><strong>Figure 1.</strong> The reproduced CapsNet. Two 9×9 convolutions produce a 6×6×256 tensor read as 1152 primary capsules of 8 dimensions; three iterations of routing-by-agreement produce one 16-D capsule per class. Capsule length is the class score. During training the winning capsule (masked by the true label) is decoded back to 784 pixels, and the reconstruction error regularizes the encoder — at test time the mask uses the predicted label instead.</p>
+</div>
+
+<p>A capsule&#39;s activation is kept in the unit ball by the <strong>squash</strong> nonlinearity, which preserves orientation while mapping length to \([0,1)\):</p>
+\[ \mathbf{v}_j \;=\; \frac{\lVert  \mathbf{s}_j \rVert^2}{1+\lVert  \mathbf{s}_j \rVert^2}\,\frac{\mathbf{s}_j}{\lVert  \mathbf{s}_j \rVert} \]
+<p>Each primary capsule \(i\) predicts every class capsule \(j\) through a learned transform, \(\hat{\mathbf{u}}_{j|i} = \mathbf{W}_{ij}\,\mathbf{u}_i\), and <strong>routing-by-agreement</strong> decides how much each prediction counts. With logits \(b_{ij}\) initialized to zero, three iterations of:</p>
+\[ c_{ij} = \operatorname{softmax}_j(b_{ij}), \qquad \mathbf{s}_j = \sum_i c_{ij}\,\hat{\mathbf{u}}_{j|i}, \qquad \mathbf{v}_j = \operatorname{squash}(\mathbf{s}_j), \qquad b_{ij} \mathrel{+}= \hat{\mathbf{u}}_{j|i}\cdot\mathbf{v}_j \]
+<p>Classification is trained with the <strong>margin loss</strong>, summed over classes and averaged over the batch &#40;\(T_k = 1\) for the true class&#41;:</p>
+\[ L_k = T_k\,\max(0,\, m^+ - \lVert  \mathbf{v}_k \rVert)^2 \;+\; \lambda\,(1-T_k)\,\max(0,\, \lVert  \mathbf{v}_k \rVert - m^-)^2 \]
+<p>with \(m^+{=}\,0.9\), \(m^-{=}\,0.1\), \(\lambda{=}\,0.5\), plus a reconstruction term weighted by \(\alpha = 5\times10^{-4}\) so it regularizes without dominating:</p>
+\[ \mathcal{L} \;=\; \sum_k L_k \;+\; \alpha \,\lVert  \hat{\mathbf{x}} - \mathbf{x} \rVert^2 \]
+<p>Every number in the port is normative — copied from the reference and asserted where a test can reach it:</p>
+<table><tr><th align="right">Component</th><th align="right">Value &#40;identical to reference&#41;</th></tr><tr><td align="right">Conv 1 / Conv 2</td><td align="right">256 filters, 9×9, valid, ReLU; stride 1 then stride 2</td></tr><tr><td align="right">Primary capsules</td><td align="right">1152 capsules × 8-D &#40;&#61; 6·6·32 maps&#41;, squash</td></tr><tr><td align="right">Class capsules</td><td align="right">\(n\) × 16-D, transform \(\mathbf{W} \in \mathbb{R}^{16\times8\times1152\times n}\)</td></tr><tr><td align="right">Routing</td><td align="right">3 iterations, softmax over classes</td></tr><tr><td align="right">Decoder</td><td align="right">Dense 16·\(n\) → 512 → 1024 → 784, ReLU/ReLU/sigmoid</td></tr><tr><td align="right">Loss</td><td align="right">margin &#40;\(0.9/0.1/0.5\)&#41; &#43; \(5{\times}10^{-4}\) · reconstruction SSE</td></tr><tr><td align="right">Optimizer</td><td align="right">Adam, lr \(10^{-3}\), ×0.95 exponential decay per epoch</td></tr><tr><td align="right">Batch size</td><td align="right">64 &#40;CapsNet&#41;, 128 &#40;CNNs&#41;</td></tr></table>
+<h3 id="the_two_comparison_networks"><a href="#the_two_comparison_networks" class="header-anchor">The two comparison networks</a></h3>
+<p><strong>LeNet</strong> — the classic: zero-pad to 32×32, two conv&#43;maxpool stages &#40;6 then 16 filters at 5×5&#41;, then dense 120 → 84 → \(n\). Exactly <strong>61,706</strong> trainable parameters at \(n{=}10\); the test suite asserts that count.</p>
+<p><strong>Baseline CNN</strong> — the deliberately strong baseline from the capsule paper: three 5×5 convolutions at 256/256/128 channels, &quot;dense&quot; layers expressed as 16×16 and 1×1 convolutions &#40;328 and 192 channels&#41;, dropout 0.5, and L2 weight decay \(5\times10^{-4}\). At roughly 25M parameters it out-muscles CapsNet&#39;s ~8.2M — which is what makes CapsNet&#39;s low-data behavior interesting rather than a parameter-count artifact.</p>
+<h2 id="the_three_data_challenges"><a href="#the_three_data_challenges" class="header-anchor">The three data challenges</a></h2>
+<p>The experiment harness stresses training data three ways, each a pure function <code>LabeledData → LabeledData</code> with an explicit RNG:</p>
+<pre><code class="language-julia"># 1. Limited data — stratified: keep pct&#37; of every class
+train &#61; limit_data&#40;train, 10; rng&#41;              # 10&#37; of MNIST ≈ 6,000 images
+
+# 2. Class imbalance — starve selected classes to pct&#37; &#40;digits 0 and 8 → labels 1 and 9&#41;
+train &#61; unbalance_data&#40;train, &#91;1, 9&#93;, 20; rng&#41;
+
+# 3. Augmentation — append ±10° rotations of 5&#37; of samples &#40;&#43; flips for Fashion&#41;
+train &#61; augment_data&#40;train; flips&#61;false, rng&#41;</code></pre>
+<p>These mirror the reference&#39;s <code>percentage_train</code>, <code>unbalance_dict</code>, and <code>augment</code> switches exactly — including details that are easy to get subtly wrong, like stratifying the limited-data subsample per class and <em>appending</em> &#40;not replacing with&#41; the augmented copies.</p>
+<h2 id="the_port"><a href="#the_port" class="header-anchor">The port</a></h2>
+<p><strong><a href="https://github.com/divingdiv/MedCapsNet">MedCapsNet</a></strong> is a self-contained Julia package &#40;Julia ≥ 1.10, Flux 0.16&#41;:</p>
+<table><tr><th align="right">Layer</th><th align="right">Files</th><th align="right">What it holds</th></tr><tr><td align="right">Capsule math</td><td align="right"><code>src/layers.jl</code></td><td align="right"><code>squash</code>, <code>safe_norm</code>, <code>primary_capsules</code>, <code>prediction_vectors</code>, <code>routing</code></td></tr><tr><td align="right">Models</td><td align="right"><code>src/capsnet.jl</code>, <code>src/baselines.jl</code></td><td align="right"><code>CapsNet</code>, <code>lenet</code>, <code>baseline_cnn</code></td></tr><tr><td align="right">Losses</td><td align="right"><code>src/losses.jl</code></td><td align="right"><code>margin_loss</code>, <code>reconstruction_loss</code>, <code>capsnet_loss</code>, <code>cnn_loss</code></td></tr><tr><td align="right">Data</td><td align="right"><code>src/data.jl</code></td><td align="right">loaders, the three challenge transforms, medical JLD2 I/O, Macenko</td></tr><tr><td align="right">Training</td><td align="right"><code>src/train.jl</code></td><td align="right">generic <code>train&#33;</code> — Adam &#43; decay, best-validation checkpointing</td></tr><tr><td align="right">Evaluation</td><td align="right"><code>src/metrics.jl</code></td><td align="right">batched prediction, confusion matrix, per-class P/R/F1</td></tr><tr><td align="right">Figures</td><td align="right"><code>src/visualize.jl</code></td><td align="right">reconstruction grids, capsule-perturbation grids</td></tr><tr><td align="right">Entry points</td><td align="right"><code>scripts/</code></td><td align="right"><code>train.jl</code>, <code>test.jl</code>, <code>visualize.jl</code>, <code>run_experiments.jl</code>, two preprocessors</td></tr></table>
+<p>Two implementation choices worth calling out for anyone porting TensorFlow capsule code to Julia:</p>
+<p><strong>Channel grouping across memory layouts.</strong> The reference reshapes its <code>&#40;B, 6, 6, 256&#41;</code> row-major tensor to <code>&#40;B, 1152, 8&#41;</code>, which silently groups <em>8 consecutive channels at one spatial position</em> into each capsule. Julia is column-major with WHCN layout, so the equivalent is not a bare <code>reshape</code> — it&#39;s <code>reshape&#40;permutedims&#40;h, &#40;3,1,2,4&#41;&#41;, 8, 1152, B&#41;</code>. A wrong permutation here still produces the right shapes, still trains, and still squashes to valid norms; only the capsule semantics quietly change. The review process hand-verified the index algebra rather than trusting shape-level tests.</p>
+<p><strong>Routing that survives automatic differentiation.</strong> Zygote &#40;Flux&#39;s AD&#41; rejects array mutation, so the routing loop is written with rebinding &#40;<code>b &#61; b .&#43; agreement</code>&#41; and the logits are initialized with an AD-safe <code>zero&#40;T&#41; .* sum&#40;û; dims&#61;1&#41;</code> rather than a <code>zeros&#40;...&#41;</code> literal — which also keeps the code generic over array types. The unrolled 3-iteration loop is differentiated end-to-end, exactly like the reference&#39;s static TF graph.</p>
+<h3 id="how_it_was_built"><a href="#how_it_was_built" class="header-anchor">How it was built</a></h3>
+<p>The port was executed as <strong>18 test-driven tasks</strong>, each implemented by a fresh agent against a written brief, each independently reviewed for spec compliance and code quality before the next began, with a final whole-branch review at the end. The suite grew task by task to <strong>64 assertions</strong> — not just shape checks: hand-computed margin-loss values, a routing property test &#40;capsules voting coherently for a class must out-length incoherent votes&#41;, a train-checkpoint-reload round-trip that must reproduce the best validation loss bit-for-bit, and a synthetic H&amp;E image that must separate hematoxylin from eosin.</p>
+<h2 id="what_reimplementation_found"><a href="#what_reimplementation_found" class="header-anchor">What reimplementation found</a></h2>
+<p>Reproducing a paper&#39;s code is a form of review, and this one surfaced real findings — all in the <em>plan</em> for the port rather than in the reference:</p>
+<p><strong>A stain-separation bug the tests caught.</strong> The port replaces Vahadane stain normalization with Macenko &#40;SVD on optical densities — no sparse-NMF library exists in Julia&#41;. The first-draft Macenko picked the <em>hematoxylin</em> stain vector as the one with the larger <strong>blue</strong> optical-density component — intuitive &#40;&quot;hematoxylin is the blue stain&quot;&#41; and wrong. Hematoxylin <em>looks</em> blue-purple because it <strong>absorbs red</strong>; on unit-normalized OD directions the blue component comparison actually inverts, selecting eosin. The synthetic-image test failed, the fix &#40;compare the <strong>red</strong> OD component, as standard Macenko implementations do&#41; was derived from the failure, and the reviewer independently re-derived the optics before it merged. A shape-level test would never have caught this.</p>
+<p><strong>A flaky test traced to an unseeded initializer.</strong> A &quot;does the trainer learn?&quot; test failed roughly one run in three: the toy model&#39;s <code>Dense</code> layer drew its weights from the global RNG while everything else was seeded. Seeding the initializer made the suite deterministic — and revealed that ~25&#37; of seeds genuinely fail a &quot;5 epochs is enough to learn&quot; assertion on a 64-sample toy problem. Reproducibility bugs hide easily behind assertions that are merely <em>usually</em> true.</p>
+<p><strong>Assorted spec-level defects</strong> — a CSV format whose imbalance label &#40;<code>&quot;1,9@20&quot;</code>&#41; embedded a comma into a comma-separated file, an include order that couldn&#39;t compile because a method&#39;s type annotation resolved before the type existed, dependency compat pins that silently raised the Julia floor above the advertised one. Each was caught by a reviewer or a failing build, not by luck.</p>
+<h2 id="results"><a href="#results" class="header-anchor">Results</a></h2>
+<p>The low-data regime is where the paper&#39;s claim lives, so that is what the reproduction sweeps: both architectures trained on <strong>1&#37;, 5&#37;, and 10&#37;</strong> of MNIST &#40;10 epochs, Adam 10⁻³ with ×0.95/epoch decay, best-validation checkpoint, seed 1&#41;, evaluated on the untouched 10,000-image test set. LeNet additionally gets the full-data, imbalance, and augmentation configurations — it is cheap enough on CPU.</p>
+
+<div class="fig">
+  <img src="/MedCapsNet/assets/results-limited.svg" alt="Test accuracy vs training set size: CapsNet vs LeNet at 1%, 5%, 10% of MNIST" />
+  <p class="caption"><strong>Figure 2.</strong> Test accuracy in the low-data regime (10 epochs, seed 1). CapsNet's advantage is largest exactly where the paper predicts: <strong>+8.1 points at 1%</strong> of the training data (550 images), narrowing to +2.4 points at 10% — built-in equivariance pays most when examples are scarcest. LeNet reaches 98.75% with the full training set (table below); the CapsNet configurations were trained on CPU (see the GPU postscript).</p>
+</div>
+
+<table><tr><th align="right">Configuration</th><th align="right">Training images</th><th align="right">CapsNet</th><th align="right">LeNet</th></tr><tr><td align="right">1&#37; of MNIST</td><td align="right">550</td><td align="right"><strong>91.55&#37;</strong></td><td align="right">83.45&#37;</td></tr><tr><td align="right">5&#37; of MNIST</td><td align="right">2,750</td><td align="right"><strong>97.70&#37;</strong></td><td align="right">93.70&#37;</td></tr><tr><td align="right">10&#37; of MNIST</td><td align="right">5,501</td><td align="right"><strong>98.51&#37;</strong></td><td align="right">96.07&#37;</td></tr><tr><td align="right">100&#37; of MNIST</td><td align="right">55,000</td><td align="right">—</td><td align="right">98.75&#37;</td></tr><tr><td align="right">Imbalance &#40;digits 0, 8 → 20&#37;&#41;</td><td align="right">46,364</td><td align="right">—</td><td align="right">98.73&#37; &#40;starved-class recall 0.986 / 0.971&#41;</td></tr><tr><td align="right">Augmented &#40;&#43;5&#37; rotated copies&#41;</td><td align="right">57,750</td><td align="right">—</td><td align="right">98.92&#37;</td></tr></table>
+<p>The dashes are honest budget lines, not gaps in the port: a full-data CapsNet run is ~10× the 10&#37; cost, and the imbalance/augmentation configurations train on near-full data — the CLI runs them with one flag each &#40;<code>--unbalance 1,9@20</code>, <code>--augment</code>&#41;, and the full three-seed sweep command is in the reproduction section.</p>
+
+<div class="fig">
+  <img src="/MedCapsNet/assets/reconstructions.png" alt="Top row: five MNIST test digits. Bottom row: the CapsNet decoder's reconstructions from the winning class capsule." />
+  <p class="caption"><strong>Figure 3.</strong> Inputs (top) and decoder reconstructions from the winning 16-D class capsule (bottom), CapsNet trained on 10% of MNIST. The decoder sees only 16 numbers per image — the blur is the price of that bottleneck, and the point: the capsule keeps what identifies the digit.</p>
+</div>
+
+<p>Perturbing one dimension of the winning capsule and decoding each variant shows what the 16 dimensions learned to encode — stroke thickness, slant, width — without ever being told to:</p>
+
+<div class="fig">
+  <img src="/MedCapsNet/assets/tweak_dim_a.png" alt="Reconstructions while sweeping one capsule dimension from -0.5 to 0.5 across 11 steps, five sample digits as rows." />
+  <img src="/MedCapsNet/assets/tweak_dim_b.png" alt="Same sweep for a second capsule dimension." />
+  <p class="caption"><strong>Figure 4.</strong> Capsule-dimension perturbations: each row is one test digit, each column decodes the winning capsule with one dimension shifted through [−0.5, 0.5] in 11 steps (center column = unperturbed). Two of the sixteen dimensions shown: the first (dim 8) morphs stroke topology — watch the 2's loop open and close — while the second (dim 5) shifts stroke weight and the 7's serif. Nobody labeled these factors; routing discovered them.</p>
+</div>
+
+<h2 id="the_medical_pipelines"><a href="#the_medical_pipelines" class="header-anchor">The medical pipelines</a></h2>
+
+<div class="fig">
+  <img src="/MedCapsNet/assets/fundus-pipeline.png" alt="Left: original fundus photograph with diabetic retinopathy. Middle: after border cropping and adaptive contrast enhancement. Right: the green channel the network trains on. Bottom row: six 28×28 lesion-centered patches." />
+  <p class="caption"><strong>Figure 5.</strong> The retinopathy preprocessing pipeline, run by this package's own code on a real fundus photograph (DIARETDB0, the sister dataset — see the data-access note below): original → border-cropped + contrast-enhanced (CLAHE-equivalent) → green channel, then 28×28 patches extracted at lesion centers-of-mass — the exact input format the capsule network trains on.</p>
+</div>
+
+<p>Both medical datasets from the study are supported end-to-end — and the difficulty of even <em>obtaining</em> them today is the paper&#39;s thesis writing itself: the original DIARETDB1 host &#40;a 2007-era university server&#41; is offline, the one public mirror labeled &quot;DIARETDB1&quot; actually contains its predecessor DIARETDB0, and TUPAC16 sits behind challenge registration. Figure 5 therefore demonstrates the pipeline on a DIARETDB0 image &#40;same camera, same 50° protocol, coarser labels&#41;; the per-lesion training protocol below runs unchanged the moment the real DIARETDB1 lands in <code>raw_data/</code> &#40;a Kaggle mirror exists for account holders&#41;. The pipelines themselves are validated with synthetic fixtures and unit tests:</p>
+<p><strong>TUPAC16 &#40;mitosis detection, 2 classes&#41;.</strong> High-power-field histology tiles are stain-normalized with <strong>Macenko</strong>, the hematoxylin concentration channel is extracted, and 100×100 patches are cut around annotated mitosis centers &#40;30 jittered positives per image; 3 negatives from mitosis-free grid cells&#41;, resized to 28×28. <em>This is the port&#39;s one documented algorithmic deviation:</em> the reference uses Vahadane normalization via the SPAMS library, which has no Julia equivalent; Macenko is the standard substitute.</p>
+<p><strong>DIARETDB1 &#40;diabetic retinopathy, 2 classes&#41;.</strong> Fundus images are cropped of their black border, contrast-enhanced &#40;CLAHE-equivalent adaptive equalization&#41;, reduced to the green channel, and 200×200 patches are extracted at lesion centers-of-mass on a 300-px grid — exudates &#40;soft&#43;hard&#41; vs. hemorrhages&#43;red small dots — resized to 28×28.</p>
+<p>Both write the same <code>data.jld2</code> contract the trainer consumes &#40;<code>train/val/test</code> arrays plus the training mean&#41;, so a medical run is just:</p>
+<pre><code class="language-bash">julia --project&#61;. scripts/preprocess_diaretdb1.jl
+julia --project&#61;. scripts/train.jl medical capsnet --datadir data/diaretdb1
+julia --project&#61;. scripts/test.jl  medical capsnet --datadir data/diaretdb1</code></pre>
+<h2 id="postscript_porting_the_training_loop_to_apple-gpu_metal"><a href="#postscript_porting_the_training_loop_to_apple-gpu_metal" class="header-anchor">Postscript: porting the training loop to Apple-GPU &#40;Metal&#41;</a></h2>
+<p>The package now supports <code>--device gpu</code> on Apple Silicon via <a href="https://github.com/JuliaGPU/Metal.jl">Metal.jl</a> — and getting there was its own small research story, told here because the negative results are as instructive as the wins:</p>
+<ol>
+<li><p><strong>The naive port lost to the CPU.</strong> With the capsule layer written as a materialized broadcast &#40;the straightforward translation of the reference TF code&#41;, a batch-64 gradient step took 2,840 ms on the GPU vs 1,425 ms on CPU — the backward pass through a 380 MB temporary is kernel-launch soup.</p>
+</li>
+<li><p><strong>Reformulating prediction as batched matrix multiplication fixed the math path.</strong> <code>û_&#123;j|i&#125; &#61; W_&#123;ij&#125; u_i</code> over 1,152 capsules is exactly a batched matmul; expressed that way &#40;hitting Apple&#39;s MPS on GPU, BLAS on CPU&#41; the CPU step dropped ~40&#37; and the GPU pulled ahead of the CPU per-step — verified across five independent benchmark runs.</p>
+</li>
+<li><p><strong>Then the OS killed the training run.</strong> Multi-epoch GPU training ballooned to <strong>62.8 GB of unified memory on a 24 GB machine</strong> before macOS&#39;s jetsam killed it. Half the cause is a known ecosystem trap — Julia&#39;s GC never feels GPU buffer pressure, fixed here with a periodic reclaim hook in the trainer. The other half, isolated by bisection &#40;each layer run alone with memory sampling&#41;, is a genuine buffer leak inside Metal.jl&#39;s MPS <code>matmul&#33;</code> — the exact op the speedup relies on — which no amount of GC can reclaim.</p>
+</li>
+</ol>
+<p>Where that leaves things: <strong>LeNet and the Baseline CNN train fully on the GPU</strong> &#40;10 epochs, 1.75 GB peak, verified bounded&#41;, and the LeNet results above were produced that way; <strong>CapsNet training stays on CPU</strong> until the upstream leak is fixed, which the batched-matmul reformulation made perfectly practical &#40;~15 minutes for the 10&#37;-data model on this page&#41;. Every measurement, the bisection procedure, and the per-op memory timelines are in the repository&#39;s benchmark script and README.</p>
+<h2 id="reproduce_everything"><a href="#reproduce_everything" class="header-anchor">Reproduce everything</a></h2>
+<pre><code class="language-bash">git clone https://github.com/divingdiv/MedCapsNet &amp;&amp; cd MedCapsNet
+julia --project&#61;. -e &#39;using Pkg; Pkg.instantiate&#40;&#41;; Pkg.test&#40;&#41;&#39;   # 72/72
+
+# the figures on this page
+julia --project&#61;. scripts/train.jl mnist capsnet --epochs 10 --percentage 10 --seed 1 --modeldir models/page/capsnet-p10
+julia --project&#61;. scripts/test.jl  mnist capsnet --modeldir models/page/capsnet-p10
+julia --project&#61;. scripts/visualize.jl mnist --modeldir models/page/capsnet-p10
+
+# the full experiment sweep from the paper &#40;days of compute; --device gpu helps only marginally — see README&#41;
+julia --project&#61;. scripts/run_experiments.jl mnist --epochs 25 --seeds 1,2,3</code></pre>
+<p><strong>Honest limitations.</strong> These are single-seed, 10-epoch runs &#40;CapsNet on CPU, LeNet on GPU&#41; on MNIST — a demonstration that the reproduced pipeline behaves like the paper&#39;s, not a re-derivation of its tables &#40;the reference trains far longer, averages seeds, and spans four datasets&#41;. The full-fidelity sweep is one command above; the medical datasets additionally need registration-gated downloads. Beyond the Macenko substitution, two reference behaviors are approximated and flagged in the README: the CLAHE parameterization, and the trainer&#39;s exponential-decay rate, which the reference leaves unspecified.</p>
+<h2 id="references"><a href="#references" class="header-anchor">References</a></h2>
+<ol>
+<li><p>A. Jiménez-Sánchez, S. Albarqouni, D. Mateus. <em>Capsule Networks against Medical Imaging Data Challenges.</em> LABELS@MICCAI 2018. <a href="https://arxiv.org/abs/1807.07559">arXiv:1807.07559</a></p>
+</li>
+<li><p>S. Sabour, N. Frosst, G. E. Hinton. <em>Dynamic Routing Between Capsules.</em> NeurIPS 2017. <a href="https://arxiv.org/abs/1710.09829">arXiv:1710.09829</a></p>
+</li>
+<li><p>M. Macenko et al. <em>A method for normalizing histology slides for quantitative analysis.</em> ISBI 2009.</p>
+</li>
+<li><p>Reference implementation: <a href="https://github.com/ameliajimenez/capsule-networks-medical-data-challenges">ameliajimenez/capsule-networks-medical-data-challenges</a> &#40;TensorFlow 1.4, builds on <a href="https://github.com/ageron">@ageron</a>&#39;s CapsNet&#41;.</p>
+</li>
+<li><p>This port: <a href="https://github.com/divingdiv/MedCapsNet">divingdiv/MedCapsNet</a> &#40;Julia ≥ 1.10, Flux 0.16&#41;.</p>
+</li>
+</ol>
+<div class="page-foot">
+  <div class="copyright">
+    MedCapsNet &mdash; a Julia reproduction of
+    <a href="https://arxiv.org/abs/1807.07559">Jim&eacute;nez-S&aacute;nchez, Albarqouni &amp; Mateus (LABELS@MICCAI 2018)</a>.
+    Site built with <a href="https://franklinjl.org">Franklin.jl</a>.
+  </div>
+</div>
+</div><!-- CONTENT ENDS HERE -->
+    
+        <script src="/MedCapsNet/libs/katex/katex.min.js"></script>
+<script src="/MedCapsNet/libs/katex/contrib/auto-render.min.js"></script>
+<script>renderMathInElement(document.body)</script>
+
+    
+    
+        <script src="/MedCapsNet/libs/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();hljs.configure({tabReplace: '    '});</script>
+
+    
+  </body>
+</html>

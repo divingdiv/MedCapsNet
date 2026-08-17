@@ -1,0 +1,4 @@
+Sitemap: https://divingdiv.github.io/MedCapsNet/sitemap.xml
+
+User-agent: *
+Disallow:
