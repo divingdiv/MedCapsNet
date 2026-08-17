@@ -1,13 +1,13 @@
 using Test, MedCapsNet, Flux, Random, JLD2
 
 @testset "train!" begin
-    rng = Xoshiro(4)
+    rng = Xoshiro(3)
     # separable toy problem: class 2 images are brighter
     x = cat(0.2f0 .* rand(rng, Float32, 28, 28, 1, 40),
             0.5f0 .+ 0.2f0 .* rand(rng, Float32, 28, 28, 1, 40); dims=4)
     d = LabeledData(x, repeat([1, 2], inner=40))
     tr, val = split_validation(d, 16; rng)
-    model = Chain(Flux.flatten, Dense(784 => 2))
+    model = Chain(Flux.flatten, Dense(784 => 2; init=Flux.glorot_uniform(rng)))
     dir = mktempdir()
     hist = train!(cnn_loss, model, tr, val, 2; epochs=5, batchsize=16, dir, rng)
     @test length(hist) == 5
