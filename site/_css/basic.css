@@ -1,0 +1,228 @@
+/* MedCapsNet research page — token-driven, light + dark. */
+
+:root {
+  color-scheme: light dark;
+  --page:        #f9f9f7;
+  --surface:     #fcfcfb;
+  --ink:         #0b0b0b;
+  --ink-2:       #52514e;
+  --muted:       #898781;
+  --hairline:    #e1e0d9;
+  --border:      rgba(11, 11, 11, 0.10);
+  --accent:      #2a78d6;
+  --accent-ink:  #1c5cab;
+  --code-bg:     #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page:        #0d0d0d;
+    --surface:     #1a1a19;
+    --ink:         #f2f1ec;
+    --ink-2:       #c3c2b7;
+    --muted:       #898781;
+    --hairline:    #2c2c2a;
+    --border:      rgba(255, 255, 255, 0.10);
+    --accent:      #3987e5;
+    --accent-ink:  #6da7ec;
+    --code-bg:     #232322;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+/* ---- header ---- */
+header {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 1.1rem 1.25rem 0.9rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--hairline);
+}
+header .blog-name a {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-decoration: none;
+}
+header nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 1.1rem; }
+header nav a { color: var(--ink-2); text-decoration: none; font-size: 0.92rem; }
+header nav a:hover { color: var(--accent); }
+
+/* ---- main column ---- */
+.franklin-content {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.franklin-content h1 {
+  font-size: 2.05rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin: 1.2rem 0 0.4rem;
+}
+.franklin-content h2 {
+  font-size: 1.42rem;
+  letter-spacing: -0.01em;
+  margin: 2.6rem 0 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--hairline);
+}
+.franklin-content h3 { font-size: 1.12rem; margin: 1.8rem 0 0.4rem; }
+.franklin-content h1 a, .franklin-content h2 a, .franklin-content h3 a {
+  color: inherit; text-decoration: none;
+}
+
+.franklin-content a { color: var(--accent-ink); text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 2px; }
+.franklin-content a:hover { text-decoration-color: var(--accent); }
+
+.franklin-content p { margin: 0.8rem 0; }
+.franklin-content blockquote {
+  margin: 1rem 0;
+  padding: 0.15rem 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--ink-2);
+  background: var(--surface);
+  border-radius: 0 6px 6px 0;
+}
+
+/* hero block under the H1 */
+.hero-sub { color: var(--ink-2); font-size: 1.05rem; margin-top: 0; }
+.hero-links { margin: 0.9rem 0 0.4rem; display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.hero-links a {
+  display: inline-block;
+  padding: 0.28rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+.hero-links a:hover { border-color: var(--accent); color: var(--accent-ink); }
+
+/* abstract card */
+.abstract {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin: 1.4rem 0;
+  color: var(--ink-2);
+}
+.abstract strong:first-child { color: var(--ink); }
+
+/* ---- table of contents ---- */
+.franklin-toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1.1rem;
+  font-size: 0.93rem;
+}
+.franklin-toc ol { margin: 0.2rem 0; padding-left: 1.2rem; }
+.franklin-toc a { text-decoration: none; color: var(--ink-2); }
+.franklin-toc a:hover { color: var(--accent-ink); }
+
+/* ---- code ---- */
+.franklin-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.franklin-content pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.franklin-content pre code { background: none; padding: 0; font-size: 0.84rem; }
+
+/* ---- tables ---- */
+.franklin-content .table-wrap, .franklin-content table { max-width: 100%; }
+.franklin-content table {
+  border-collapse: collapse;
+  margin: 1.2rem auto;
+  font-size: 0.92rem;
+  display: block;
+  overflow-x: auto;
+}
+.franklin-content th, .franklin-content td {
+  padding: 0.45rem 0.85rem;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+.franklin-content th {
+  color: var(--ink-2);
+  font-weight: 600;
+  border-bottom: 2px solid var(--hairline);
+  white-space: nowrap;
+}
+.franklin-content td { font-variant-numeric: tabular-nums; }
+
+/* ---- figures ---- */
+.franklin-content img { max-width: 100%; height: auto; }
+figure, .fig {
+  margin: 1.6rem 0;
+  text-align: center;
+}
+.fig img {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fcfcfb; /* figures are rendered on light; keep them legible in dark mode */
+  padding: 6px;
+}
+.fig .caption, figcaption {
+  margin-top: 0.55rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  text-align: left;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.fig .caption strong { color: var(--ink-2); }
+
+/* two-up figure row */
+.fig-row { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+.fig-row > div { flex: 1 1 300px; min-width: 0; }
+
+/* ---- misc ---- */
+.franklin-content hr { border: none; border-top: 1px solid var(--hairline); margin: 2.2rem 0; }
+
+.page-foot {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 1.2rem 1.25rem 2.5rem;
+  border-top: 1px solid var(--hairline);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.page-foot a { color: var(--ink-2); }
+
+/* katex display size */
+.katex-display { font-size: 1.02em; overflow-x: auto; overflow-y: hidden; padding: 0.2rem 0; }
+
+@media (max-width: 600px) {
+  body { font-size: 16px; }
+  header { flex-direction: column; gap: 0.4rem; }
+  .franklin-content h1 { font-size: 1.6rem; }
+}

@@ -137,12 +137,19 @@ on GPU at this batch size — the workload is short enough that fixed
 dispatch/sync overhead and OS scheduling jitter dominate, so individual runs
 swing roughly 2–5x between their min and median. Rerunning the whole script
 independently 5 times, GPU's median capsnet step beat CPU's every time
-(GPU 452–810 ms vs. CPU 745–934 ms, a 14–50% margin depending on the run) —
+(GPU 452–810 ms vs. CPU 745–934 ms, a 12–50% margin depending on the run) —
 never once did GPU lose. Forward-only and LeNet timings are far more stable
 on both devices.
 
 **Decision** (per the rule: GPU iff its capsnet gradient step ≤ CPU's, else
-STOP): **GPU wins** — the Task 4 project-page reruns use `--device gpu`.
+STOP): **GPU wins per-step** — but a buffer leak inside Metal.jl's MPS `matmul!`
+(the `batched_mul` fast path `prediction_vectors` relies on) makes multi-epoch
+**CapsNet GPU training balloon in unified memory until macOS kills it** (observed:
+62.8 GB on a 24 GB machine; isolated by per-op bisection — see the trainer's
+`reclaim` hook, which fixes the GC-starvation half but cannot reach this leak).
+Until that is fixed upstream, **do not train CapsNet with `--device gpu`**: the
+project-page runs use CPU for CapsNet (practical after the batched_mul speedup)
+and `--device gpu` for LeNet/Baseline, which train bounded (1.75 GB peak, verified).
 
 ## Medical datasets
 

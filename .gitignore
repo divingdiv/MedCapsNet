@@ -4,3 +4,7 @@ models/
 results*.csv
 *.png
 Manifest.toml
+site/__site/
+!site/Manifest.toml
+!site/_assets/*.png
+!site/_assets/*.svg
