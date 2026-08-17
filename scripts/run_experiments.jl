@@ -36,7 +36,7 @@ for arch in archs, seed in seeds
     for pct in percents                                        # study 1: limited data
         rec("limited", pct, run_config(; dataset, arch, epochs, seed, pct))
     end
-    rec("imbalance", "1,9@20",                                  # study 2: imbalance
+    rec("imbalance", "1;9@20",                                  # study 2: imbalance
         run_config(; dataset, arch, epochs, seed, unb=(labels=[1, 9], pct=20.0)))
     rec("augment", "on",                                        # study 3: augmentation
         run_config(; dataset, arch, epochs, seed, augment=true))
