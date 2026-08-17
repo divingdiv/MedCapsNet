@@ -118,8 +118,31 @@ require a Metal-capable Mac and are skipped by default:
 MEDCAPSNET_TEST_METAL=true julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-**Measured speedup:** TODO (Task 3) — CPU vs. Metal wall-clock comparison
-across architectures/datasets.
+**Measured speedup:** `julia --project=. scripts/bench_device.jl` times a
+warm gradient step (`Flux.withgradient`) and forward pass at the batch sizes
+used elsewhere in this repo (capsnet 64, lenet 128), plus `predict_classes`
+throughput over 1024 random images, on both devices (7 runs each after 1
+warmup; min/median reported given run-to-run spread — see caveat below).
+Measured on this machine (Apple Metal, `Metal.functional() == true`):
+
+| device | arch | step ms (min/median) | fwd ms (min/median) | infer ms/1k img (min/median) |
+| --- | --- | --- | --- | --- |
+| cpu | capsnet | 681.7 / 865.2 | 160.3 / 178.4 | 2796.3 / 2855.8 |
+| cpu | lenet | 10.2 / 10.6 | 2.5 / 2.7 | 18.5 / 19.9 |
+| gpu | capsnet | 155.1 / 743.0 | 32.2 / 32.6 | 716.6 / 1040.8 |
+| gpu | lenet | 4.8 / 9.5 | 1.2 / 1.5 | 4.6 / 5.7 |
+
+CapsNet's gradient step (the number that gates the decision below) is noisy
+on GPU at this batch size — the workload is short enough that fixed
+dispatch/sync overhead and OS scheduling jitter dominate, so individual runs
+swing roughly 2–5x between their min and median. Rerunning the whole script
+independently 5 times, GPU's median capsnet step beat CPU's every time
+(GPU 452–810 ms vs. CPU 745–934 ms, a 14–50% margin depending on the run) —
+never once did GPU lose. Forward-only and LeNet timings are far more stable
+on both devices.
+
+**Decision** (per the rule: GPU iff its capsnet gradient step ≤ CPU's, else
+STOP): **GPU wins** — the Task 4 project-page reruns use `--device gpu`.
 
 ## Medical datasets
 
