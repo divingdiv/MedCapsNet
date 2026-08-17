@@ -9,6 +9,7 @@ using Statistics, Random, LinearAlgebra, Printf
 using JLD2
 using ImageTransformations: imrotate, imresize
 import MLDatasets
+using FileIO, Colors
 
 include("layers.jl")
 include("capsnet.jl")
@@ -17,8 +18,7 @@ include("losses.jl")
 include("data.jl")
 include("train.jl")
 include("metrics.jl")
-# include lines are added task by task:
-# include("visualize.jl")
+include("visualize.jl")
 
 export squash, safe_norm, margin_loss, primary_capsules, prediction_vectors, routing
 export CapsNet, capsules, class_lengths, reconstruct, reconstruction_loss, capsnet_loss
@@ -27,5 +27,6 @@ export augment_data, load_medical
 export make_batches, evaluate_loss, train!, cnn_loss
 export predict_classes, confusion_matrix, classification_report
 export lenet, baseline_cnn
+export reconstruction_grid, perturbation_grid
 
 end # module
