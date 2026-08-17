@@ -63,3 +63,17 @@ end
     pe = extract_patch(g, 5, 5; half=100, jitter=30, rng=Xoshiro(7))  # near edge: clamped, no error
     @test size(pe) == (28, 28) && all(isfinite, pe)
 end
+
+using Colors
+
+@testset "macenko_hematoxylin" begin
+    rng = Xoshiro(8)
+    # synthetic H&E-ish image: purple-ish and pink-ish regions on white
+    img = fill(RGB{Float32}(0.95, 0.95, 0.95), 64, 64)
+    img[10:30, 10:30] .= RGB{Float32}(0.4, 0.2, 0.55)   # hematoxylin-like
+    img[40:60, 40:60] .= RGB{Float32}(0.85, 0.5, 0.6)   # eosin-like
+    h = macenko_hematoxylin(img)
+    @test size(h) == (64, 64)
+    @test all(0 .≤ h .≤ 1)
+    @test mean(h[10:30, 10:30]) > mean(h[40:60, 40:60])  # H region dominates H channel
+end

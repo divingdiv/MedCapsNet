@@ -23,7 +23,7 @@ include("visualize.jl")
 export squash, safe_norm, margin_loss, primary_capsules, prediction_vectors, routing
 export CapsNet, capsules, class_lengths, reconstruct, reconstruction_loss, capsnet_loss
 export LabeledData, nobs, take_obs, load_vision, split_validation, limit_data, unbalance_data
-export augment_data, load_medical, crop_bbox, extract_patch
+export augment_data, load_medical, crop_bbox, extract_patch, macenko_hematoxylin
 export make_batches, evaluate_loss, train!, cnn_loss
 export predict_classes, confusion_matrix, classification_report
 export lenet, baseline_cnn

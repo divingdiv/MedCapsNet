@@ -104,3 +104,31 @@ function extract_patch(g::AbstractMatrix{Float32}, cy::Int, cx::Int;
     patch = g[(cy - half):(cy + half - 1), (cx - half):(cx + half - 1)]
     return Float32.(imresize(patch, (28, 28)))
 end
+
+"""Macenko stain separation (SVD on optical density); returns the hematoxylin
+concentration map in [0,1]. DEVIATION from reference (Vahadane/SPAMS) — no
+sparse-NMF library exists in Julia; Macenko is the standard substitute."""
+function macenko_hematoxylin(img::AbstractMatrix{<:AbstractRGB}; beta=0.15, alpha=1.0)
+    H, W = size(img)
+    I = clamp.(vcat(vec(Float64.(red.(img)))', vec(Float64.(green.(img)))',
+                    vec(Float64.(blue.(img)))'), 1e-6, 1.0)          # 3×N
+    od = -log10.(I)
+    tissue = vec(all(od .> beta / 3; dims=1)) .& (vec(sum(od; dims=1)) .> beta)
+    odt = od[:, tissue]
+    size(odt, 2) < 10 && return zeros(Float32, H, W)                  # no tissue
+    E = eigen(Symmetric(odt * odt' ./ size(odt, 2)))
+    V = E.vectors[:, sortperm(E.values; rev=true)[1:2]]               # top-2 plane
+    proj = V' * odt                                                   # 2×Nt
+    φ = atan.(proj[2, :], proj[1, :])
+    φmin, φmax = quantile(φ, alpha / 100), quantile(φ, 1 - alpha / 100)
+    v1 = V * [cos(φmin); sin(φmin)]
+    v2 = V * [cos(φmax); sin(φmax)]
+    # hematoxylin = the vector with the larger red-channel OD share (standard
+    # Macenko HE-ordering heuristic — c.f. reference Python implementations
+    # comparing component 0 of vMin/vMax, i.e. index 1 here)
+    HE = v1[1] > v2[1] ? hcat(v1, v2) : hcat(v2, v1)
+    C = HE \ od                                                       # 2×N concentrations
+    h = reshape(max.(C[1, :], 0.0), H, W)
+    hi = quantile(vec(h), 0.99)
+    return Float32.(clamp.(h ./ (hi + 1e-8), 0, 1))
+end
