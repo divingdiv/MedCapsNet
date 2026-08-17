@@ -12,11 +12,14 @@ build_model(arch::Symbol, n_class::Int; rng) =
 build_lossfn(arch::Symbol) = arch === :capsnet ? capsnet_loss : cnn_loss
 
 function resolve_device(args)
-    if getopt(args, "--device", "cpu") == "gpu"
+    dev = getopt(args, "--device", "cpu")
+    if dev == "gpu"
         @eval Main using Metal
         return Flux.gpu
+    elseif dev == "cpu"
+        return identity
     end
-    return identity
+    error("unknown --device $dev (expected \"cpu\" or \"gpu\")")
 end
 
 """resolve_reclaim(args) -> () -> Nothing

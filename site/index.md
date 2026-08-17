@@ -17,7 +17,7 @@ hascode = true
 
 ~~~
 <div class="abstract">
-<strong>Abstract.</strong> Annotated medical images are expensive: datasets are small, pathological classes are rare, and every label costs expert time. The original study asked whether <em>capsule networks</em> — whose vector-valued activations and routing-by-agreement build in equivariance a CNN has to learn from data — hold up better than convolutional baselines under exactly these constraints. This project is a from-scratch reproduction of that study's entire pipeline in Julia: the CapsNet architecture with dynamic routing, the LeNet and Baseline-CNN comparisons, the limited-data / class-imbalance / augmentation experiment harness, and the preprocessing pipelines for the two medical datasets (TUPAC16 mitosis patches and DIARETDB1 retinopathy patches). Everything below — every figure and number — was produced by the Julia code in this repository. The port is faithful to the reference hyperparameter-for-hyperparameter, with one documented algorithmic substitution (Macenko in place of Vahadane stain normalization) and one genuine bug found <em>in the port's own plan</em> along the way.
+<strong>Abstract.</strong> Annotated medical images are expensive: datasets are small, pathological classes are rare, and every label costs expert time. The original study asked whether <em>capsule networks</em> — whose vector-valued activations and routing-by-agreement build in equivariance a CNN has to learn from data — hold up better than convolutional baselines under exactly these constraints. This project is a from-scratch reproduction of that study's entire pipeline in Julia: the CapsNet architecture with dynamic routing, the LeNet and Baseline-CNN comparisons, the limited-data / class-imbalance / augmentation experiment harness, and the preprocessing pipelines for the two medical datasets (TUPAC16 mitosis patches and DIARETDB1 retinopathy patches). Every result below — and every figure's underlying data — comes from runs of the Julia code in this repository. The port is faithful to the reference hyperparameter-for-hyperparameter, with one documented algorithmic substitution (Macenko in place of Vahadane stain normalization) and one genuine bug found <em>in the port's own plan</em> along the way.
 </div>
 ~~~
 
@@ -138,7 +138,7 @@ The low-data regime is where the paper's claim lives, so that is what the reprod
 ~~~
 <div class="fig">
   <img src="/assets/results-limited.svg" alt="Test accuracy vs training set size: CapsNet vs LeNet at 1%, 5%, 10% of MNIST" />
-  <p class="caption"><strong>Figure 2.</strong> Test accuracy in the low-data regime (10 epochs, seed 1). CapsNet's advantage is largest exactly where the paper predicts: <strong>+8.1 points at 1%</strong> of the training data (600 images), narrowing to +2.4 points at 10% — built-in equivariance pays most when examples are scarcest. LeNet reaches 98.75% with the full training set (table below); the CapsNet configurations were trained on CPU (see the GPU postscript).</p>
+  <p class="caption"><strong>Figure 2.</strong> Test accuracy in the low-data regime (10 epochs, seed 1). CapsNet's advantage is largest exactly where the paper predicts: <strong>+8.1 points at 1%</strong> of the training data (550 images), narrowing to +2.4 points at 10% — built-in equivariance pays most when examples are scarcest. LeNet reaches 98.75% with the full training set (table below); the CapsNet configurations were trained on CPU (see the GPU postscript).</p>
 </div>
 ~~~
 
@@ -207,7 +207,7 @@ Where that leaves things: **LeNet and the Baseline CNN train fully on the GPU** 
 
 ```bash
 git clone https://github.com/divingdiv/MedCapsNet && cd MedCapsNet
-julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'   # 64/64
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'   # 72/72
 
 # the figures on this page
 julia --project=. scripts/train.jl mnist capsnet --epochs 10 --percentage 10 --seed 1 --modeldir models/page/capsnet-p10
@@ -218,7 +218,7 @@ julia --project=. scripts/visualize.jl mnist --modeldir models/page/capsnet-p10
 julia --project=. scripts/run_experiments.jl mnist --epochs 25 --seeds 1,2,3
 ```
 
-**Honest limitations.** These are single-seed, 10-epoch CPU runs on MNIST — a demonstration that the reproduced pipeline behaves like the paper's, not a re-derivation of its tables (the reference trains far longer, averages seeds, and spans four datasets). The full-fidelity sweep is one command above; the medical datasets additionally need registration-gated downloads. Beyond the Macenko substitution, two reference behaviors are approximated and flagged in the README: the CLAHE parameterization, and the trainer's exponential-decay rate, which the reference leaves unspecified.
+**Honest limitations.** These are single-seed, 10-epoch runs (CapsNet on CPU, LeNet on GPU) on MNIST — a demonstration that the reproduced pipeline behaves like the paper's, not a re-derivation of its tables (the reference trains far longer, averages seeds, and spans four datasets). The full-fidelity sweep is one command above; the medical datasets additionally need registration-gated downloads. Beyond the Macenko substitution, two reference behaviors are approximated and flagged in the README: the CLAHE parameterization, and the trainer's exponential-decay rate, which the reference leaves unspecified.
 
 ## References
 

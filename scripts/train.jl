@@ -8,6 +8,10 @@ unb     = getopt(ARGS, "--unbalance", "")          # e.g. "1,9@20" (1-based labe
 rng     = Xoshiro(seed)
 device  = resolve_device(ARGS)
 reclaim = resolve_reclaim(ARGS)
+if arch === :capsnet && device !== identity
+    @warn "CapsNet forced to CPU: Metal.jl MPS matmul leak makes GPU training unsafe (see README)"
+    device, reclaim = identity, () -> nothing
+end
 
 train_d, val_d, _ = load_splits(dataset, ARGS, rng)
 pct < 100 && (train_d = limit_data(train_d, pct; rng))
@@ -24,6 +28,7 @@ dir     = getopt(ARGS, "--modeldir", joinpath("models", String(dataset), String(
 
 train!(build_lossfn(arch), model, train_d, val_d, n_class;
        epochs, dir, rng, device, reclaim,
+       reclaim_every = arch === :capsnet ? 1 : 50,
        batchsize = arch === :capsnet ? 64 : 128,
        weight_decay = arch === :baseline ? 5f-4 : 0f0)
 jldsave(joinpath(dir, "meta.jld2"); n_class, arch=String(arch))

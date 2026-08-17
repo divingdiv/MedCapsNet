@@ -12,6 +12,10 @@ reclaim  = resolve_reclaim(ARGS)
 
 function run_config(; dataset, arch, epochs, seed, pct=100.0, unb=nothing, augment=false,
                     device=identity, reclaim=() -> nothing)
+    dev = arch === :capsnet ? identity : device
+    rec = arch === :capsnet ? (() -> nothing) : reclaim
+    arch === :capsnet && device !== identity &&
+        @warn "CapsNet forced to CPU: Metal.jl MPS matmul leak makes GPU training unsafe (see README)"
     rng = Xoshiro(seed)
     full = load_vision(dataset; split=:train)
     tr, val = split_validation(full, 5000; rng)
@@ -21,12 +25,13 @@ function run_config(; dataset, arch, epochs, seed, pct=100.0, unb=nothing, augme
     n = 10
     model = build_model(arch, n; rng)
     dir = mktempdir()
-    train!(build_lossfn(arch), model, tr, val, n; epochs, dir, rng, device, reclaim,
+    train!(build_lossfn(arch), model, tr, val, n; epochs, dir, rng, device=dev, reclaim=rec,
+           reclaim_every=arch === :capsnet ? 1 : 50,
            batchsize=arch === :capsnet ? 64 : 128,
            weight_decay=arch === :baseline ? 5f-4 : 0f0)
     Flux.loadmodel!(model, JLD2.load(joinpath(dir, "best.jld2"))["state"])
     te = load_vision(dataset; split=:test)
-    return classification_report(confusion_matrix(te.y, predict_classes(model, te.x; device), n))
+    return classification_report(confusion_matrix(te.y, predict_classes(model, te.x; device=dev), n))
 end
 
 isfile(out) || open(io -> println(io, "dataset,arch,experiment,param,seed,accuracy,mean_f1"), out, "w")

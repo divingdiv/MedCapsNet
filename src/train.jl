@@ -30,8 +30,8 @@ a training loop is normally far too low to trigger Julia's own GC heuristics
 often enough, letting unified-memory usage climb until macOS's jetsam
 OOM-killer intervenes (observed: 62.78 GB resident on a 24 GB machine). This
 function stays Metal-free — the caller (see `scripts/common.jl`'s
-`resolve_reclaim`) supplies the actual `GC.gc`/device-sync closure; passing
-`reclaim=identity`-style no-ops (the default) keeps CPU runs unaffected.
+`resolve_reclaim`) supplies the actual `GC.gc`/device-sync closure; the
+default `reclaim=() -> nothing` is a true no-op, keeping CPU runs unaffected.
 
 `reclaim_every` default is `1` (every batch), not a larger stride: measured
 on this hardware, per-batch GPU growth for `CapsNet` (which routes through

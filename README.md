@@ -289,11 +289,24 @@ imbalance), and one config with augmentation enabled at 100% data (study 3:
 augmentation). Each config trains a fresh model from scratch, reloads the
 best checkpoint, and reports test-set accuracy and mean per-class F1.
 
-**Cost warning:** the full 3-arch × 6-config × 3-seed sweep at 25 epochs is
-a realistic **hours-on-GPU / days-on-CPU** undertaking, so budget accordingly
-— pass `--device gpu` on a Metal-capable Mac (see
-[GPU (Apple Metal)](#gpu-apple-metal)) to cut this down substantially. Start
-small before committing to the full sweep, e.g.:
+**Cost warning:** the full 3-arch × 6-config × 3-seed sweep at 25 epochs is a
+realistic **hours-to-days-on-CPU** undertaking (CapsNet dominates the cost;
+see the per-step numbers below), so budget accordingly.
+`--device gpu` on a Metal-capable Mac (see
+[GPU (Apple Metal)](#gpu-apple-metal)) accelerates the **lenet/baseline**
+configs only — the script automatically forces CapsNet configs back to CPU
+(with a warning) regardless of `--device`, for the reason given in the
+bolded warning above; **do not train CapsNet with `--device gpu`**. Measured
+on this machine, LeNet's per-epoch wall time at 10% data (batchsize 128,
+excluding one-time Metal.jl load) is **not** meaningfully faster on GPU than
+CPU — 0.78s/epoch GPU vs. 0.72s/epoch CPU — because per-epoch validation,
+device-transfer, and reclaim overhead swallow the warm per-step edge GPU has
+in isolation (see the step-level numbers in
+[GPU (Apple Metal)](#gpu-apple-metal)); a cold single-invocation run is
+slower still on GPU (Metal.jl's load cost dominates a short run: 49.8s vs.
+22.7s wall-clock for one epoch at 10% data end-to-end). Budget the full sweep
+as CPU-speed regardless of `--device`. Start small before committing to the
+full sweep, e.g.:
 
 ```bash
 julia --project=. scripts/run_experiments.jl mnist --seeds 1 --archs capsnet,lenet

@@ -1,10 +1,12 @@
 data/
 raw_data/
+raw_data*.zip
 models/
 results*.csv
 *.png
 Manifest.toml
 site/__site/
+site/_rss/
 !site/Manifest.toml
 !site/_assets/*.png
 !site/_assets/*.svg
