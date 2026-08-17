@@ -214,7 +214,7 @@ julia --project=. scripts/train.jl mnist capsnet --epochs 10 --percentage 10 --s
 julia --project=. scripts/test.jl  mnist capsnet --modeldir models/page/capsnet-p10
 julia --project=. scripts/visualize.jl mnist --modeldir models/page/capsnet-p10
 
-# the full experiment sweep from the paper (hours on GPU, days on CPU)
+# the full experiment sweep from the paper (days of compute; --device gpu helps only marginally — see README)
 julia --project=. scripts/run_experiments.jl mnist --epochs 25 --seeds 1,2,3
 ```
 
