@@ -50,3 +50,16 @@ end
     @test minimum(tr.x) ≈ 0f0 atol = 1f-6            # min-max normalized
     @test maximum(tr.x) ≈ 1f0 atol = 1f-6
 end
+
+@testset "crop_bbox / extract_patch" begin
+    img = zeros(Float32, 100, 120)
+    img[20:80, 30:90] .= 0.7f0
+    rows, cols = crop_bbox(img)
+    @test rows == 20:80 && cols == 30:90
+
+    g = rand(Xoshiro(7), Float32, 500, 600)
+    p = extract_patch(g, 250, 300; half=100, jitter=30, rng=Xoshiro(7))
+    @test size(p) == (28, 28)
+    pe = extract_patch(g, 5, 5; half=100, jitter=30, rng=Xoshiro(7))  # near edge: clamped, no error
+    @test size(pe) == (28, 28) && all(isfinite, pe)
+end

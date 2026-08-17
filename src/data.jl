@@ -82,3 +82,25 @@ function load_medical(dir::AbstractString)
     val   = haskey(f, "val_x") ? LabeledData(norm01(f["val_x"]), f["val_y"]) : nothing
     return train, val, test
 end
+
+"""Bounding box of content differing from the [1,1] corner value by > `thresh`
+(port of the reference's PIL ImageChops.difference crop). Works on grayscale
+matrices; for RGB images pass e.g. `Float32.(green.(img))`."""
+function crop_bbox(img::AbstractMatrix; thresh=0.05f0)
+    mask = abs.(img .- img[1, 1]) .> thresh
+    rows = findall(vec(any(mask; dims=2)))
+    cols = findall(vec(any(mask; dims=1)))
+    (isempty(rows) || isempty(cols)) && return axes(img, 1), axes(img, 2)
+    return first(rows):last(rows), first(cols):last(cols)
+end
+
+"""Extract a (2·half)² patch centered at (cy,cx) with ±`jitter` px random
+translation, clamped inside bounds, resized to 28×28."""
+function extract_patch(g::AbstractMatrix{Float32}, cy::Int, cx::Int;
+                       half::Int=100, jitter::Int=30, rng)
+    H, W = size(g)
+    cy = clamp(cy + rand(rng, -jitter:jitter), half + 1, H - half + 1)
+    cx = clamp(cx + rand(rng, -jitter:jitter), half + 1, W - half + 1)
+    patch = g[(cy - half):(cy + half - 1), (cx - half):(cx + half - 1)]
+    return Float32.(imresize(patch, (28, 28)))
+end
