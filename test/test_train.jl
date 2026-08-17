@@ -30,3 +30,23 @@ end
     @test length(hist) == 2 && isfile(joinpath(dir, "best.jld2"))
     @test length(predict_classes(model, val.x; device=identity)) == 8
 end
+
+@testset "train! reclaim hook" begin
+    rng = Xoshiro(4)
+    x = cat(0.2f0 .* rand(rng, Float32, 28, 28, 1, 20),
+            0.5f0 .+ 0.2f0 .* rand(rng, Float32, 28, 28, 1, 20); dims=4)
+    d = LabeledData(x, repeat([1, 2], inner=20))
+    tr, val = split_validation(d, 8; rng)          # tr has 32 obs
+    model = Chain(Flux.flatten, Dense(784 => 2; init=Flux.glorot_uniform(rng)))
+    dir = mktempdir()
+    calls = Ref(0)
+    hist = train!(cnn_loss, model, tr, val, 2; epochs=2, batchsize=8, dir, rng,
+                  device=identity, reclaim=() -> (calls[] += 1), reclaim_every=2)
+    # 32 obs / batchsize 8 = 4 batches/epoch => 2 mid-loop fires (every 2 batches)
+    # + 1 post-eval fire, per epoch; 2 epochs total.
+    @test calls[] == 2 * (2 + 1)
+    @test length(hist) == 2
+    # default reclaim is a true no-op — no behavior change vs. the pre-fix trainer.
+    hist2 = train!(cnn_loss, model, tr, val, 2; epochs=1, batchsize=8, dir=mktempdir(), rng, device=identity)
+    @test length(hist2) == 1
+end
